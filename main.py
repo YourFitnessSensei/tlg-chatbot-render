@@ -3,6 +3,7 @@ import logging
 import subprocess
 from contextlib import asynccontextmanager
 from typing import Generator
+from calendar_watcher import watch_google_calendar
 
 import uvicorn
 from fastapi import FastAPI, Request, Response, status
