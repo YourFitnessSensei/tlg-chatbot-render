@@ -1,66 +1,58 @@
-import os
-import json
-import logging
 import asyncio
+import os
+import logging
 from datetime import datetime, timedelta
-from telethon import TelegramClient
+import pytz
+import json
+
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
+# Получаем переменные окружения
+GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
+CALENDAR_IDS = os.getenv("GOOGLE_CALENDAR_IDS", "").split(",")
 
-def get_calendar_service():
-    creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"])
-    credentials = service_account.Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+# Проверка
+if not GOOGLE_CREDENTIALS_JSON or not CALENDAR_IDS:
+    raise ValueError("GOOGLE_CREDENTIALS_JSON и GOOGLE_CALENDAR_IDS должны быть заданы в переменных окружения")
+
+# Загружаем учётные данные
+credentials = service_account.Credentials.from_service_account_info(
+    json.loads(GOOGLE_CREDENTIALS_JSON),
+    scopes=["https://www.googleapis.com/auth/calendar.readonly"]
+)
+
+# Асинхронная функция для отслеживания событий
+async def watch_google_calendar():
     service = build("calendar", "v3", credentials=credentials)
-    return service
-
-async def check_and_notify(client: TelegramClient):
-    service = get_calendar_service()
-    calendar_ids = os.environ["GOOGLE_CALENDAR_ID"].split(",")
+    logging.info("Google Calendar Watcher запущен")
 
     while True:
-        now = datetime.utcnow()
-        time_max = now + timedelta(hours=24)
-        notified = set()
+        now = datetime.utcnow().isoformat() + "Z"
+        time_max = (datetime.utcnow() + timedelta(hours=24)).isoformat() + "Z"
 
-        for calendar_id in calendar_ids:
-            events_result = service.events().list(
-                calendarId=calendar_id,
-                timeMin=now.isoformat() + "Z",
-                timeMax=time_max.isoformat() + "Z",
-                singleEvents=True,
-                orderBy="startTime"
-            ).execute()
+        for calendar_id in CALENDAR_IDS:
+            try:
+                events_result = service.events().list(
+                    calendarId=calendar_id.strip(),
+                    timeMin=now,
+                    timeMax=time_max,
+                    maxResults=10,
+                    singleEvents=True,
+                    orderBy="startTime"
+                ).execute()
+                events = events_result.get("items", [])
 
-            events = events_result.get("items", [])
-            for event in events:
-                description = event.get("description", "")
-                start = event["start"].get("dateTime")
-                if not start or "@" not in description:
-                    continue
+                if not events:
+                    logging.info(f"Нет событий в календаре {calendar_id}")
+                else:
+                    for event in events:
+                        start = event["start"].get("dateTime", event["start"].get("date"))
+                        logging.info(f"[{calendar_id}] Событие: {event['summary']} в {start}")
+                        # Здесь можно вызывать бота / отправку сообщений
 
-                username = [word for word in description.split() if word.startswith("@")]
-                if not username:
-                    continue
-                username = username[0]
+            except Exception as e:
+                logging.error(f"Ошибка при получении событий из {calendar_id}: {e}")
 
-                event_time = datetime.fromisoformat(start[:-1])  # remove trailing 'Z'
-                diff = event_time - now
+        await asyncio.sleep(60) 
 
-                event_id = event["id"]
-                if (event_id, username) in notified:
-                    continue
-
-                # отправка сразу после создания
-                created = event.get("created")
-                if created and (now - datetime.fromisoformat(created[:-1])) < timedelta(minutes=5):
-                    await client.send_message(username, f"Вы записаны на тренировку в {event_time.strftime('%H:%M %d.%m')}")
-                    notified.add((event_id, username))
-
-                # напоминание за 2 часа
-                if timedelta(hours=1, minutes=55) < diff < timedelta(hours=2, minutes=5):
-                    await client.send_message(username, f"Напоминаем о тренировке через 2 часа — в {event_time.strftime('%H:%M %d.%m')}")
-                    notified.add((event_id, username))
-
-        await asyncio.sleep(300)  # ждать 5 минут
