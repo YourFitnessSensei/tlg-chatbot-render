@@ -1,5 +1,6 @@
 import logging
 import os
+import telegram
 from telegram import Bot
 from dotenv import load_dotenv
 
