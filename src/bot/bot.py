@@ -11,18 +11,18 @@ def load_keys():
 
 # Инициализация бота
 bot_token = load_keys()
-bot = Bot(token=bot_token)
+telegram_bot = Bot(token=bot_token)
 
 async def send_message(chat_id, message):
     try:
-        await bot.send_message(chat_id=chat_id, text=message)
+        await telegram_bot.send_message(chat_id=chat_id, text=message)
         logging.info(f"Message sent to {chat_id}: {message}")
     except Exception as e:
         logging.error(f"Error sending message: {e}")
 
-# Пример использования
-async def watch_google_calendar():
-    # Пример с событиями из календаря
-    chat_id = 'your_chat_id'  # Укажите ID вашего чата
+# Запускаем бота
+async def start_bot():
+    chat_id = 'your_chat_id'  # ← заменишь позже на нужный ID или username
     message = "Пример события из календаря!"
     await send_message(chat_id, message)
+
