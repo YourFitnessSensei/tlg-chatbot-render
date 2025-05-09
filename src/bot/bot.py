@@ -1,28 +1,30 @@
 import logging
 import os
-from telegram import Bot
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder,
+    ContextTypes,
+    CommandHandler,
+)
 from dotenv import load_dotenv
 
-# Загрузка ключей
-def load_keys():
-    load_dotenv()
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-    return bot_token
+# Загрузка переменных окружения
+load_dotenv()
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-# Инициализация бота
-bot_token = load_keys()
-telegram_bot = Bot(token=bot_token)
 
-async def send_message(chat_id, message):
-    try:
-        await telegram_bot.send_message(chat_id=chat_id, text=message)
-        logging.info(f"Message sent to {chat_id}: {message}")
-    except Exception as e:
-        logging.error(f"Error sending message: {e}")
+# Простой обработчик команды /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Бот запущен и готов к работе!")
 
-# Запускаем бота
-async def start_bot():
-    chat_id = 'your_chat_id'  # ← заменишь позже на нужный ID или username
-    message = "Пример события из календаря!"
-    await send_message(chat_id, message)
+
+# Функция запуска бота — это то, что импортируется как run_bot в main.py
+async def run_bot():
+    logging.info("Запуск Telegram-бота")
+    
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    application.add_handler(CommandHandler("start", start))
+
+    await application.run_polling()
 
