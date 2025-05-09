@@ -33,7 +33,7 @@ except:
 
 
 from src.bot import bot
-from src.calendar_watcher import watch_google_calendar  # ← добавить
+from calendar_watcher import watch_google_calendar  # ← добавить
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
