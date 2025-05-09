@@ -31,20 +31,30 @@ except:
     BOT_VERSION = "with unknown version"
 
 
+from src.bot import bot
+from src.calendar_watcher import watch_google_calendar  # ← добавить
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         loop = asyncio.get_event_loop()
         background_tasks = set()
-        task = loop.create_task(bot())
-        background_tasks.add(task)
-        task.add_done_callback(background_tasks.discard)
+
+        task_bot = loop.create_task(bot())
+        background_tasks.add(task_bot)
+        task_bot.add_done_callback(background_tasks.discard)
+
+        task_calendar = loop.create_task(watch_google_calendar())  # ← запустить календарь
+        background_tasks.add(task_calendar)
+        task_calendar.add_done_callback(background_tasks.discard)
+
         logging.info("App initiated")
     except Exception as e:
         logging.critical(f"Error occurred while starting up app: {e}")
         raise e
     yield
     logging.info("Application close...")
+
 
 
 # API and app handling
