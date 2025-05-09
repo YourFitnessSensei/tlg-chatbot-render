@@ -53,7 +53,7 @@ app = FastAPI(lifespan=lifespan, title=BOT_NAME)
 
 @app.get("/")
 async def root() -> str:
-    return f"{BOT_NAME} {BOT_VERSION} is deployed on ({time_str})"
+    return f"{BOT_NAME} {BOT_VERSION} is deployed!"
 
 
 @app.get("/health", status_code=status.HTTP_200_OK)
