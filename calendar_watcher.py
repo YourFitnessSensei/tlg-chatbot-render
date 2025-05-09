@@ -12,6 +12,21 @@ from googleapiclient.discovery import build
 GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
 CALENDAR_IDS = os.getenv("GOOGLE_CALENDAR_IDS", "").split(",")
 
+import os
+import logging
+
+# Логируем переменные окружения для отладки
+GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
+CALENDAR_IDS = os.getenv("GOOGLE_CALENDAR_IDS", "").split(",")
+
+logging.info(f"GOOGLE_CREDENTIALS_JSON: {GOOGLE_CREDENTIALS_JSON}")
+logging.info(f"CALENDAR_IDS: {CALENDAR_IDS}")
+
+# Проверка
+if not GOOGLE_CREDENTIALS_JSON or not CALENDAR_IDS:
+    raise ValueError("GOOGLE_CREDENTIALS_JSON и GOOGLE_CALENDAR_IDS должны быть заданы в переменных окружения")
+
+
 # Проверка
 if not GOOGLE_CREDENTIALS_JSON or not CALENDAR_IDS:
     raise ValueError("GOOGLE_CREDENTIALS_JSON и GOOGLE_CALENDAR_IDS должны быть заданы в переменных окружения")
@@ -55,4 +70,6 @@ async def watch_google_calendar():
                 logging.error(f"Ошибка при получении событий из {calendar_id}: {e}")
 
         await asyncio.sleep(60) 
+
+
 
