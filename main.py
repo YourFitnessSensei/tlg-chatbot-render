@@ -1,39 +1,33 @@
 import asyncio
 import logging
-import subprocess
+import os
 from contextlib import asynccontextmanager
 from typing import Generator
-from calendar_watcher import watch_google_calendar
 
 import uvicorn
-from fastapi import FastAPI, Request, Response, status
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import FastAPI, status
+from fastapi.responses import StreamingResponse
 
 from __version__ import __version__
-from src.bot import bot
+from calendar_watcher import watch_google_calendar
+from src.bot.bot import run_bot  # функция запуска бота (НЕ объект Bot!)
 from src.utils import (
     BOT_NAME,
-    LOG_PATH,
     create_initial_folders,
     get_date_time,
     initialize_logging,
-    terminal_html,
 )
 
-# Initialize
+# Логгирование и инициализация
 create_initial_folders()
 console_out = initialize_logging()
 time_str = get_date_time("Asia/Ho_Chi_Minh")
 
-# Bot version
 try:
     BOT_VERSION = __version__
 except:
-    BOT_VERSION = "with unknown version"
+    BOT_VERSION = "unknown"
 
-
-from src.bot import bot
-from calendar_watcher import watch_google_calendar  # ← добавить
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,24 +35,26 @@ async def lifespan(app: FastAPI):
         loop = asyncio.get_event_loop()
         background_tasks = set()
 
-        task_bot = loop.create_task(bot())
+        # Запускаем Telegram-бота
+        task_bot = loop.create_task(run_bot())
         background_tasks.add(task_bot)
         task_bot.add_done_callback(background_tasks.discard)
 
-        task_calendar = loop.create_task(watch_google_calendar())  # ← запустить календарь
+        # Запускаем фоновую проверку календаря
+        task_calendar = loop.create_task(watch_google_calendar())
         background_tasks.add(task_calendar)
         task_calendar.add_done_callback(background_tasks.discard)
 
-        logging.info("App initiated")
+        logging.info("App successfully started")
     except Exception as e:
-        logging.critical(f"Error occurred while starting up app: {e}")
+        logging.critical(f"Error during app startup: {e}")
         raise e
+
     yield
-    logging.info("Application close...")
+    logging.info("Application shutting down...")
 
 
-
-# API and app handling
+# FastAPI app
 app = FastAPI(lifespan=lifespan, title=BOT_NAME)
 
 
@@ -81,31 +77,7 @@ async def log_check() -> StreamingResponse:
     return StreamingResponse(generate_log())
 
 
-# @app.get("/terminal", response_class=HTMLResponse)
-# async def terminal(request: Request) -> Response:
-#     return Response(content=terminal_html(), media_type="text/html")
-
-
-# @app.post("/terminal/run")
-# async def run_command(command: dict) -> str:
-#     try:
-#         output_bytes = subprocess.check_output(
-#             command["command"], shell=True, stderr=subprocess.STDOUT
-#         )
-#         output_str = output_bytes.decode("utf-8")
-#         # Split output into lines and remove any leading/trailing whitespace
-#         output_lines = [line.strip() for line in output_str.split("\n")]
-#         # Join lines with a <br> tag for display in HTML
-#         formatted_output = "<br>".join(output_lines)
-#     except subprocess.CalledProcessError as e:
-#         formatted_output = e.output.decode("utf-8")
-#     return formatted_output
-
-
-# Minnion run
-import os
-
+# Запуск на Render
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
-
