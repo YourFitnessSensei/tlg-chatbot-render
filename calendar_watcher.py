@@ -2,6 +2,7 @@ import asyncio
 import os
 import logging
 from datetime import datetime, timedelta
+from src.bot.notifier import send_notification
 import json
 
 from google.oauth2 import service_account
@@ -52,10 +53,9 @@ async def watch_google_calendar():
                 else:
                     for event in events:
                         start = event["start"].get("dateTime", event["start"].get("date"))
-                        logging.info(json.dumps(event, indent=2, ensure_ascii=False))  # Полный вывод события
-                        logging.info(f"[{calendar_id}] Событие: {event.get('summary', 'Без названия')} в {start}")
-
-                        # Здесь можно вызвать бота / отправить сообщение
+                        summary = event.get("summary", "")
+                        logging.info(f"[{calendar_id}] Событие: {summary} в {start}")
+                        await send_notification(summary, start)
 
             except Exception as e:
                 logging.error(f"Ошибка при получении событий из {calendar_id}: {e}")
