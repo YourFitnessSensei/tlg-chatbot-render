@@ -2,7 +2,6 @@ import asyncio
 import os
 import logging
 from datetime import datetime, timedelta
-import pytz
 import json
 
 from google.oauth2 import service_account
@@ -12,22 +11,11 @@ from googleapiclient.discovery import build
 GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
 CALENDAR_IDS = os.getenv("GOOGLE_CALENDAR_IDS", "").split(",")
 
-import os
-import logging
-
 # Логируем переменные окружения для отладки
-GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
-CALENDAR_IDS = os.getenv("GOOGLE_CALENDAR_IDS", "").split(",")
-
 logging.info(f"GOOGLE_CREDENTIALS_JSON: {GOOGLE_CREDENTIALS_JSON}")
 logging.info(f"CALENDAR_IDS: {CALENDAR_IDS}")
 
-# Проверка
-if not GOOGLE_CREDENTIALS_JSON or not CALENDAR_IDS:
-    raise ValueError("GOOGLE_CREDENTIALS_JSON и GOOGLE_CALENDAR_IDS должны быть заданы в переменных окружения")
-
-
-# Проверка
+# Проверка наличия необходимых данных
 if not GOOGLE_CREDENTIALS_JSON or not CALENDAR_IDS:
     raise ValueError("GOOGLE_CREDENTIALS_JSON и GOOGLE_CALENDAR_IDS должны быть заданы в переменных окружения")
 
@@ -43,7 +31,8 @@ async def watch_google_calendar():
     logging.info("Google Calendar Watcher запущен")
 
     while True:
-        now = datetime.utcnow().isoformat() + "Z"
+        # Берём события за последние 10 минут и ближайшие 24 часа
+        now = (datetime.utcnow() - timedelta(minutes=10)).isoformat() + "Z"
         time_max = (datetime.utcnow() + timedelta(hours=24)).isoformat() + "Z"
 
         for calendar_id in CALENDAR_IDS:
@@ -63,13 +52,12 @@ async def watch_google_calendar():
                 else:
                     for event in events:
                         start = event["start"].get("dateTime", event["start"].get("date"))
-                        logging.info(f"[{calendar_id}] Событие: {event['summary']} в {start}")
-                        # Здесь можно вызывать бота / отправку сообщений
+                        logging.info(json.dumps(event, indent=2, ensure_ascii=False))  # Полный вывод события
+                        logging.info(f"[{calendar_id}] Событие: {event.get('summary', 'Без названия')} в {start}")
+
+                        # Здесь можно вызвать бота / отправить сообщение
 
             except Exception as e:
                 logging.error(f"Ошибка при получении событий из {calendar_id}: {e}")
 
-        await asyncio.sleep(60) 
-
-
-
+        await asyncio.sleep(60)
