@@ -28,6 +28,8 @@ try:
 except:
     BOT_VERSION = "unknown"
 
+# FastAPI app
+app = FastAPI(lifespan=lifespan, title=BOT_NAME)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
