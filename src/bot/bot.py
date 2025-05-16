@@ -1,33 +1,31 @@
 import logging
-import os
-import asyncio
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
-    ContextTypes,
     CommandHandler,
+    ContextTypes,
 )
-from dotenv import load_dotenv
 
-# Загрузка переменных окружения
-load_dotenv()
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+# Глобальное хранилище пользователей
+user_map = {}
 
-# Обработчик команды /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    chat_id = update.effective_chat.id
+
+    if user.username:
+        user_map[user.username] = chat_id
+        logging.info(f"Пользователь @{user.username} зарегистрирован с chat_id={chat_id}")
+    else:
+        logging.warning(f"Пользователь без username: chat_id={chat_id}")
+
     await update.message.reply_text("Бот запущен и готов к работе!")
 
-# Функция запуска бота (используется в main.py)
 async def run_bot():
-    logging.info("Запуск Telegram-бота")
+    application = ApplicationBuilder().token(
+        os.getenv("TELEGRAM_BOT_TOKEN")
+    ).build()
 
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
     application.add_handler(CommandHandler("start", start))
 
-    # Инициализируем и запускаем бота вручную
-    await application.initialize()
-    await application.start()
-
-    # Запускаем polling в фоне (без .idle())
-    asyncio.create_task(application.updater.start_polling())
-
+    await application.run_polling()
