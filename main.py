@@ -31,27 +31,28 @@ except:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    loop = asyncio.get_event_loop()
+    background_tasks = set()
+
+    task_bot = loop.create_task(run_bot())
+    background_tasks.add(task_bot)
+    task_bot.add_done_callback(background_tasks.discard)
+
+    task_calendar = loop.create_task(watch_google_calendar())
+    background_tasks.add(task_calendar)
+    task_calendar.add_done_callback(background_tasks.discard)
+
+    logging.info("App successfully started")
+
     try:
-        loop = asyncio.get_event_loop()
-        background_tasks = set()
+        yield
+    finally:
+        logging.info("Application shutting down...")
+        for task in background_tasks:
+            task.cancel()
+        await asyncio.gather(*background_tasks, return_exceptions=True)
 
-        # Запускаем Telegram-бота
-        task_bot = loop.create_task(run_bot())
-        background_tasks.add(task_bot)
-        task_bot.add_done_callback(background_tasks.discard)
-
-        # Запускаем фоновую проверку календаря
-        task_calendar = loop.create_task(watch_google_calendar())
-        background_tasks.add(task_calendar)
-        task_calendar.add_done_callback(background_tasks.discard)
-
-        logging.info("App successfully started")
-    except Exception as e:
-        logging.critical(f"Error during app startup: {e}")
-        raise e
-
-    yield
-    logging.info("Application shutting down...")
+app.router.lifespan_context = lifespan
 
 
 # FastAPI app
