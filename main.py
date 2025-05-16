@@ -47,14 +47,22 @@ async def lifespan(app: FastAPI):
     logging.info("App successfully started")
 
     try:
+        # Ожидаем завершения задач или вечный цикл, чтобы lifespan не завершался сразу
+        # Можно просто ждать forever, чтобы приложение не завершалось:
+        await asyncio.Event().wait()
         yield
-    finally:
-        logging.info("Application shutting down...")
+    except asyncio.CancelledError:
+        logging.info("Lifespan cancelled")
+        # Отмена фоновых задач
         for task in background_tasks:
             task.cancel()
         await asyncio.gather(*background_tasks, return_exceptions=True)
+        raise
+    finally:
+        logging.info("Application shutting down...")
 
-app.router.lifespan_context = lifespan
+
+ 
 
 
 # FastAPI app
