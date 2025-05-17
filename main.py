@@ -3,19 +3,20 @@ import logging
 import os
 import uvicorn
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
 from fastapi import status
 
 from calendar_watcher import watch_google_calendar
-from src.bot.bot import TelegramBot  # run_bot запускает и держит бота живым
+from src.bot.bot import TelegramBot
 
-# Логгирование
 logging.basicConfig(level=logging.INFO)
 
 async def run_bot():
+    logging.info("Запускаем Telegram бота")
     token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        logging.error("TELEGRAM_BOT_TOKEN не задан!")
+        return
     bot = TelegramBot(token)
     await bot.run()
 
@@ -34,9 +35,9 @@ async def lifespan(app: FastAPI):
     background_tasks.add(task_calendar)
     task_calendar.add_done_callback(background_tasks.discard)
 
-    # ⛔ НЕ yield → wait, а ✅ wait → never yield = держим процесс живым
     try:
-        await asyncio.Event().wait()  # Блокирует завершение приложения
+        yield
+        await asyncio.Event().wait()
     except asyncio.CancelledError:
         for task in background_tasks:
             task.cancel()
@@ -44,9 +45,6 @@ async def lifespan(app: FastAPI):
         raise
     finally:
         logging.info("Lifespan complete")
-        yield  # ← можно здесь, чтобы FastAPI не ругался (но он не важен)
-        # Либо вообще убрать yield, если не нужен
-        
 
 app = FastAPI(lifespan=lifespan)
 
