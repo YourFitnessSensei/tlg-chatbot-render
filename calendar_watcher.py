@@ -2,7 +2,6 @@ import asyncio
 import os
 import logging
 from datetime import datetime, timedelta
-import pytz
 import json
 
 from google.oauth2 import service_account
@@ -11,20 +10,14 @@ from googleapiclient.discovery import build
 from telegram import Bot
 from user_map import user_map
 
-
-
-# Telegram bot instance
 bot = Bot(token=os.getenv("TELEGRAM_BOT_TOKEN"))
 
-# Переменные окружения
 GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
 CALENDAR_IDS = os.getenv("GOOGLE_CALENDAR_IDS", "").split(",")
 
-# Проверка переменных
 if not GOOGLE_CREDENTIALS_JSON or not CALENDAR_IDS:
     raise ValueError("GOOGLE_CREDENTIALS_JSON и GOOGLE_CALENDAR_IDS должны быть заданы")
 
-# Учётные данные Google
 credentials = service_account.Credentials.from_service_account_info(
     json.loads(GOOGLE_CREDENTIALS_JSON),
     scopes=["https://www.googleapis.com/auth/calendar.readonly"]
