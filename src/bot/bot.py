@@ -26,3 +26,5 @@ class TelegramBot:
     async def run(self):
         logging.info("Telegram Bot started")
         await self.application.run_polling()
+        
+print("user_map теперь:", user_map)
