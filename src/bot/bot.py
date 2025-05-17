@@ -1,13 +1,12 @@
-# src/bot/bot.py
 import os
 import logging
-import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 user_map = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привет! Ты успешно запустил бота.")
     user = update.effective_user
     chat_id = update.effective_chat.id
 
@@ -19,18 +18,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("Бот запущен и готов к работе!")
 
-async def run_bot():
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    bot = TelegramBot(token)
-    await bot.application.initialize()
-    await bot.application.start()
-    logging.info("Telegram Bot started")
+class TelegramBot:
+    def __init__(self, token: str):
+        self.application = ApplicationBuilder().token(token).build()
+        self.application.add_handler(CommandHandler("start", start))
 
-    # Запускаем polling — это блокирующая корутина, которая обрабатывает обновления
-    await bot.application.updater.start_polling()
-    await bot.application.updater.idle()
-
-    await bot.application.stop()
-    await bot.application.shutdown()
-    logging.info("Telegram Bot stopped")
-
+    async def run(self):
+        logging.info("Telegram Bot started")
+        await self.application.run_polling()
