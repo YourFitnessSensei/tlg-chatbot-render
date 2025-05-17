@@ -20,14 +20,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Бот запущен и готов к работе!")
 
 async def run_bot():
-    application = ApplicationBuilder().token(os.getenv("TELEGRAM_BOT_TOKEN")).build()
-    application.add_handler(CommandHandler("start", start))
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    bot = TelegramBot(token)
+    await bot.application.initialize()
+    await bot.application.start()
+    logging.info("Telegram Bot started")
 
-    await application.initialize()
-    await application.start()
-    logging.info("Telegram bot started")
-    try:
-        await asyncio.Event().wait()  # держим бота в фоне
-    finally:
-        await application.stop()
-        await application.shutdown()
+    # Запускаем polling — это блокирующая корутина, которая обрабатывает обновления
+    await bot.application.updater.start_polling()
+    await bot.application.updater.idle()
+
+    await bot.application.stop()
+    await bot.application.shutdown()
+    logging.info("Telegram Bot stopped")
+
