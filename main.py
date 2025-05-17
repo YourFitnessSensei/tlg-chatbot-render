@@ -44,17 +44,15 @@ async def lifespan(app: FastAPI):
 
     logging.info("App successfully started")
 
-    try:
-        await asyncio.Event().wait()  # бесконечное ожидание
-        yield
-    except asyncio.CancelledError:
-        logging.info("Lifespan cancelled")
-        for task in background_tasks:
-            task.cancel()
-        await asyncio.gather(*background_tasks, return_exceptions=True)
-        raise
-    finally:
-        logging.info("Application shutting down...")
+    # ✔️ НЕ БЛОКИРУЕМ запуск FastAPI!
+    yield
+
+    # 👇 Здесь отрабатывает shutdown
+    logging.info("Lifespan shutting down")
+    for task in background_tasks:
+        task.cancel()
+    await asyncio.gather(*background_tasks, return_exceptions=True)
+
 
 # --- Инициализация FastAPI только один раз ---
 app = FastAPI(lifespan=lifespan, title=BOT_NAME)
