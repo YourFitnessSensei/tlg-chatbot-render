@@ -31,6 +31,7 @@ except Exception:
 # --- lifespan-функция и FastAPI app ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logging.info("👋 Lifespan started")
     loop = asyncio.get_event_loop()
     background_tasks = set()
 
