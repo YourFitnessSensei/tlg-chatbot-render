@@ -11,6 +11,8 @@ from googleapiclient.discovery import build
 from telegram import Bot
 from src.bot.bot import user_map
 
+print("user_map теперь:", user_map)
+
 # Telegram bot instance
 bot = Bot(token=os.getenv("TELEGRAM_BOT_TOKEN"))
 
