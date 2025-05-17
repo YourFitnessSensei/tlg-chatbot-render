@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import os
+import uvicorn
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -50,3 +51,7 @@ async def root():
 @app.get("/health", status_code=status.HTTP_200_OK)
 async def health():
     return "OK"
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
