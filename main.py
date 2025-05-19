@@ -1,31 +1,34 @@
-import os
+# main.py
+
 import logging
-import uvicorn
+import os
 from fastapi import FastAPI
-from fastapi import status
 from src.bot.bot import TelegramBot
+from src.calendar_watcher import start_calendar_watcher
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
+bot: TelegramBot | None = None
 
-@app.get("/")
-async def root():
-    return "Bot is running"
+@app.on_event("startup")
+async def on_startup():
+    global bot
+    logger.info("🔄 Starting lifespan")
 
-@app.get("/health", status_code=status.HTTP_200_OK)
-async def health():
-    return "OK"
+    # Запускаем Telegram-бота
+    bot = TelegramBot(token=os.environ["TELEGRAM_BOT_TOKEN"])
+    await bot.run()
+    logger.info("✅ Бот запущен")
 
-if __name__ == "__main__":
-    import asyncio
+    # Запускаем календарный вотчер
+    start_calendar_watcher()
+    logger.info("📅 Google Calendar Watcher запущен")
 
-    async def main():
-        token = os.getenv("TELEGRAM_BOT_TOKEN")
-        if not token:
-            logging.error("TELEGRAM_BOT_TOKEN не задан!")
-            return
-        bot = TelegramBot(token)
-        await bot.run()  # Запускаем бот, внутри него запустим watcher
-
-    asyncio.run(main())
+@app.on_event("shutdown")
+async def on_shutdown():
+    global bot
+    if bot:
+        await bot.shutdown()
+        logger.info("🛑 Бот остановлен")
