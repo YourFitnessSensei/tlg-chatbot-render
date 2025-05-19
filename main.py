@@ -4,7 +4,7 @@ import logging
 import os
 from fastapi import FastAPI
 from src.bot.bot import TelegramBot
-from src.calendar_watcher import start_calendar_watcher
+from calendar_watcher import start_calendar_watcher
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
