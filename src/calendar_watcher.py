@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from src.calendar.google_calendar import get_upcoming_events
-from src.bot.user_map import user_map  # ключ: username, значение: chat_id
+from user_map import user_map  # ключ: username, значение: chat_id
 
 logger = logging.getLogger(__name__)
 
