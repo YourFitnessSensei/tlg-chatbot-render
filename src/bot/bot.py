@@ -1,13 +1,14 @@
 import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from user_map imoirt user_map
 
 logger = logging.getLogger(__name__)
 
 class TelegramBot:
     def __init__(self, token: str):
         self.application = ApplicationBuilder().token(token).build()
-        self.user_map = {}
+        self.user_map = user_map
 
         self.application.add_handler(CommandHandler("start", self.start))
 
