@@ -1,7 +1,7 @@
 import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from user_map imoirt user_map
+from user_map import user_map
 
 logger = logging.getLogger(__name__)
 
