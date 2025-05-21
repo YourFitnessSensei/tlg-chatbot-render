@@ -1,52 +1,64 @@
 import asyncio
+import datetime
 import logging
-from datetime import datetime, timedelta
-from src.calendar.google_calendar import get_upcoming_events
-from user_map import user_map  # ключ: username, значение: chat_id
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
-logger = logging.getLogger(__name__)
+from telegram import Bot
+from user_map import user_map  # user_map в корне проекта
 
-async def watch_calendar_loop(bot_instance):
+SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+SERVICE_ACCOUNT_FILE = 'creds.json'
+
+# Список ID календарей
+CALENDAR_IDS = [
+    "feda623f7ff64223e61e023a56d72fb82c8741e7e58fea9696449c9d37073a90@group.calendar.google.com",
+    "b8f68c9a9a6109f84e95071f4359e3d6afd261fcd3811fecaa0b81ba87ab0e3d@group.calendar.google.com"
+]
+
+def get_upcoming_events(calendar_id, time_min, time_max):
+    credentials = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE, scopes=SCOPES
+    )
+    service = build('calendar', 'v3', credentials=credentials)
+
+    events_result = service.events().list(
+        calendarId=calendar_id,
+        timeMin=time_min,
+        timeMax=time_max,
+        maxResults=10,
+        singleEvents=True,
+        orderBy='startTime'
+    ).execute()
+    return events_result.get('items', [])
+
+async def watch_calendar_loop(bot: Bot):
+    logging.info("🔁 Цикл наблюдения за календарём запущен")
     while True:
-        try:
-            await check_and_notify(bot_instance)
-        except Exception as e:
-            logger.exception(f"❌ Ошибка при проверке календаря: {e}")
-        await asyncio.sleep(60)  # Проверка раз в 60 секунд
+        now = datetime.datetime.utcnow()
+        time_min = now.isoformat() + 'Z'
+        time_max = (now + datetime.timedelta(hours=1)).isoformat() + 'Z'
 
-async def check_and_notify(bot_instance):
-    calendars = [
-        "feda623f7ff64223e61e023a56d72fb82c8741e7e58fea9696449c9d37073a90@group.calendar.google.com",
-        "b8f68c9a9a6109f84e95071f4359e3d6afd261fcd3811fecaa0b81ba87ab0e3d@group.calendar.google.com",
-    ]
+        for calendar_id in CALENDAR_IDS:
+            try:
+                events = get_upcoming_events(calendar_id, time_min, time_max)
 
-    now = datetime.utcnow()
-    time_min = now.isoformat() + "Z"
-    time_max = (now + timedelta(minutes=1)).isoformat() + "Z"
+                if not events:
+                    logging.info(f"Нет событий в календаре {calendar_id}")
+                    continue
 
-    for calendar_id in calendars:
-        events = get_upcoming_events(calendar_id, time_min, time_max)
+                for event in events:
+                    summary = event.get("summary", "")
+                    start = event["start"].get("dateTime", event["start"].get("date"))
 
-        if not events:
-            logger.info(f"Нет событий в календаре {calendar_id}")
-            continue
+                    for username, chat_id in user_map.items():
+                        if f"@{username}" in summary:
+                            msg = f"📅 Напоминание: {summary} в {start}"
+                            await bot.send_message(chat_id=chat_id, text=msg)
+                            logging.info(f"✅ Отправлено: {msg} -> @{username}")
+                        else:
+                            logging.warning(f"⛔ Пользователь @{username} не найден в событии {summary}")
+            except Exception as e:
+                logging.error(f"Ошибка при проверке календаря {calendar_id}: {e}")
 
-        for event in events:
-            summary = event.get("summary", "")
-            logger.info(f"[{calendar_id}] Событие: {summary} в {event['start']['dateTime']}")
-
-            username = extract_username_from_summary(summary)
-            if username in user_map:
-                chat_id = user_map[username]
-                message = f"Напоминание: {summary} начнётся в {event['start']['dateTime']}"
-                await bot_instance.send_message(chat_id, message)
-            else:
-                logger.warning(f"Пользователь {username} не зарегистрирован в user_map")
-
-def extract_username_from_summary(summary):
-    # Пример: "Тренировка с @username" → "@username"
-    words = summary.split()
-    for word in words:
-        if word.startswith("@"):
-            return word
-    return ""
+        await asyncio.sleep(60)  # Ждём 60 секунд перед следующей проверкой
