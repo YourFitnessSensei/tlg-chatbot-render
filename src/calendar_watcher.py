@@ -11,7 +11,7 @@ from user_map import user_map  # Глобальный словарь польз�
 logger = logging.getLogger(__name__)
 
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
-SERVICE_ACCOUNT_FILE = 'C:\Users\Екатерина\Desktop\bot\yourfitnesssenseibot-1b0a46d0accf.json'
+SERVICE_ACCOUNT_FILE = 'src/credentials/yourfitnesssenseibot-1b0a46d0accf.json'
 
 # ID календарей
 CALENDAR_IDS = [
