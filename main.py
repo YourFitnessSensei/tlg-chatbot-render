@@ -1,29 +1,21 @@
-import os
 import asyncio
 import logging
 from fastapi import FastAPI
 from src.bot.bot import TelegramBot
-from src.calendar_watcher import start_calendar_watcher
+from src.calendar.calendar_watcher import watch_calendar_loop
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
+bot = TelegramBot()
 app = FastAPI()
-bot = None
+
 
 @app.on_event("startup")
-async def on_startup():
-    global bot
-    logger.info("🚀 Запуск приложения")
+async def startup_event():
+    logging.info("🚀 FastAPI запущен")
 
-    # Запуск Telegram-бота
-    bot = TelegramBot(token=os.environ["TELEGRAM_BOT_TOKEN"])
-    asyncio.create_task(bot.run())  # не блокирует event loop
+    # Запускаем Telegram бота
+    asyncio.create_task(bot.run())
 
-    # Запуск фонового календарного watcher
-    start_calendar_watcher()
-    logger.info("✅ Календарный watcher и бот запущены")
-
-@app.get("/")
-async def root():
-    return {"status": "working"}
+    # Запускаем проверку календаря в фоне
+    asyncio.create_task(watch_calendar_loop(bot))
