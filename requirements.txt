@@ -14,3 +14,4 @@ Pillow==10.1.0
 httpx>=0.23.1
 python-telegram-bot==20.3
 google-api-python-client
+python-dateutil
