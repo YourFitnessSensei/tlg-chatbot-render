@@ -8,7 +8,7 @@ from user_map import user_map  # глобальный словарь
 
 logger = logging.getLogger(__name__)
 
-TOKEN = "ВАШ_ТОКЕН"  # замени на свой токен
+TOKEN = "7655995093:AAFXF6tJ-DAAp36IJmJUuP0qCW6VvMlvJFc"  # замени на свой токен
 
 class TelegramBot:
     def __init__(self):
