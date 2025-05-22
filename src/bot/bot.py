@@ -13,9 +13,9 @@ class TelegramBot:
         self.application.add_handler(CommandHandler("start", self.start))
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        username = update.effective_user.username
+        print("📥 Получена команда /start")  # Для проверки, что handler сработал
         chat_id = update.effective_chat.id
-        self.user_map[username] = chat_id
+        self.user_map[chat_id] = True  # подписываем пользователя
         await context.bot.send_message(chat_id=chat_id, text="👋 Бот запущен. Вы подписаны на уведомления.")
 
     async def run(self):
