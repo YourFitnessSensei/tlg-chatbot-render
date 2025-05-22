@@ -8,7 +8,7 @@ from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 from telegram import Bot
 
-from user_map import user_map  # общий словарь
+from src.user_map import user_map
 
 logger = logging.getLogger(__name__)
 
@@ -22,16 +22,14 @@ CALENDAR_IDS = [
 def get_calendar_service():
     creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
     if not creds_json:
-        raise RuntimeError("Переменная окружения GOOGLE_CREDENTIALS_JSON не установлена")
-    
+        raise RuntimeError("GOOGLE_CREDENTIALS_JSON не установлена")
     creds_info = json.loads(creds_json)
     credentials = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
-    service = build('calendar', 'v3', credentials=credentials)
-    return service
+    return build('calendar', 'v3', credentials=credentials)
 
 async def check_and_notify(bot: Bot):
     service = get_calendar_service()
-    now = datetime.utcnow().isoformat() + 'Z'  # UTC время
+    now = datetime.utcnow().isoformat() + 'Z'
 
     for calendar_id in CALENDAR_IDS:
         try:
@@ -44,28 +42,24 @@ async def check_and_notify(bot: Bot):
             ).execute()
             events = events_result.get('items', [])
 
-            if not events:
-                logger.info(f"Нет событий в календаре {calendar_id}")
-                continue
-
             for event in events:
                 start = event['start'].get('dateTime', event['start'].get('date'))
-                message = f"Новое событие в календаре:\n{event.get('summary', 'Без названия')}\nНачало: {start}"
+                message = f"🗓 Новое событие: {event.get('summary', 'Без названия')}\n⏰ Начало: {start}"
 
-                logger.info(f"Отправляем уведомление о событии в календаре {calendar_id}")
+                logger.info(f"Отправка события из календаря {calendar_id}")
 
-                for chat_id in user_map.keys():
+                for chat_id in user_map.values():
                     try:
                         await bot.send_message(chat_id=chat_id, text=message)
                     except Exception as e:
-                        logger.error(f"Ошибка при отправке сообщения: {e}")
+                        logger.error(f"Ошибка отправки в чат {chat_id}: {e}")
         except Exception as e:
-            logger.error(f"Ошибка при проверке календаря {calendar_id}: {e}")
+            logger.error(f"Ошибка при работе с календарем {calendar_id}: {e}")
 
-async def watch_calendar_loop(bot: Bot, interval_seconds: int = 60):
+async def watch_calendar_loop(telegram_bot, interval_seconds=60):
     while True:
         try:
-            await check_and_notify(bot)
+            await check_and_notify(telegram_bot.application.bot)
         except Exception as e:
-            logger.error(f"Ошибка в календарном вотчере: {e}")
+            logger.error(f"Ошибка в вотчере календаря: {e}")
         await asyncio.sleep(interval_seconds)
