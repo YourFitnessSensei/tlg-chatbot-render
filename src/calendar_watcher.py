@@ -8,7 +8,7 @@ from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 from telegram import Bot
 
-from src.user_map import user_map
+from user_map import user_map
 
 logger = logging.getLogger(__name__)
 
