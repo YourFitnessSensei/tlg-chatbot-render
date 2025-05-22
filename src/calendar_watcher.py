@@ -59,12 +59,11 @@ async def check_and_notify(bot: Bot):
 
                 logger.info(f"Отправляем уведомление о событии в календаре {calendar_id}")
 
-                for user_id in user_map.keys():
+                for chat_id in user_map.values():
                     try:
-                        await bot.send_message(chat_id=user_id, text=message)
+                        await bot.send_message(chat_id=chat_id, text=message)
                     except Exception as e:
-                        logger.error(f"Ошибка при отправке сообщения пользователю {user_id}: {e}")
-
+                        logger.error(f"Ошибка при отправке сообщения: {e}")
         except Exception as e:
             logger.error(f"Ошибка при проверке календаря {calendar_id}: {e}")
 
