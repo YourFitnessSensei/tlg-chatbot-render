@@ -1,6 +1,8 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
+import os
+import json
+from datetime import datetime
 
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
@@ -11,7 +13,6 @@ from user_map import user_map  # Глобальный словарь польз�
 logger = logging.getLogger(__name__)
 
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
-SERVICE_ACCOUNT_FILE = 'C:/Users/Екатерина/Desktop/bot/yourfitnesssenseibot-1b0a46d0accf.json'
 
 # ID календарей
 CALENDAR_IDS = [
@@ -20,43 +21,52 @@ CALENDAR_IDS = [
 ]
 
 def get_calendar_service():
-    credentials = Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE,
-        scopes=SCOPES,
-    )
-    service = build('calendar', 'v3', credentials=credentials)
-    return service
+    creds_json = os.getenv("GOOGLE_CREDENTIALS")
+    if not creds_json:
+        raise RuntimeError("Переменная окружения GOOGLE_CREDENTIALS не установлена")
+    
+    try:
+        creds_info = json.loads(creds_json)
+        credentials = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
+        service = build('calendar', 'v3', credentials=credentials)
+        return service
+    except Exception as e:
+        logger.error(f"Ошибка при создании клиента календаря: {e}")
+        raise
 
 async def check_and_notify(bot: Bot):
     service = get_calendar_service()
-    now = datetime.utcnow().isoformat() + 'Z'  # 'Z' означает UTC время
+    now = datetime.utcnow().isoformat() + 'Z'  # UTC время
 
     for calendar_id in CALENDAR_IDS:
-        events_result = service.events().list(
-            calendarId=calendar_id,
-            timeMin=now,
-            maxResults=5,
-            singleEvents=True,
-            orderBy='startTime'
-        ).execute()
-        events = events_result.get('items', [])
+        try:
+            events_result = service.events().list(
+                calendarId=calendar_id,
+                timeMin=now,
+                maxResults=5,
+                singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+            events = events_result.get('items', [])
 
-        if not events:
-            logger.info(f"Нет событий в календаре {calendar_id}")
-            continue
+            if not events:
+                logger.info(f"Нет событий в календаре {calendar_id}")
+                continue
 
-        for event in events:
-            start = event['start'].get('dateTime', event['start'].get('date'))
-            message = f"Новое событие в календаре:\n{event.get('summary', 'Без названия')}\nНачало: {start}"
+            for event in events:
+                start = event['start'].get('dateTime', event['start'].get('date'))
+                message = f"Новое событие в календаре:\n{event.get('summary', 'Без названия')}\nНачало: {start}"
 
-            logger.info(f"Отправляем уведомление о событии в календаре {calendar_id}")
+                logger.info(f"Отправляем уведомление о событии в календаре {calendar_id}")
 
-            # Рассылаем всем пользователям
-            for user_id in user_map.keys():
-                try:
-                    await bot.send_message(chat_id=user_id, text=message)
-                except Exception as e:
-                    logger.error(f"Ошибка при отправке сообщения пользователю {user_id}: {e}")
+                for user_id in user_map.keys():
+                    try:
+                        await bot.send_message(chat_id=user_id, text=message)
+                    except Exception as e:
+                        logger.error(f"Ошибка при отправке сообщения пользователю {user_id}: {e}")
+
+        except Exception as e:
+            logger.error(f"Ошибка при проверке календаря {calendar_id}: {e}")
 
 async def calendar_watcher_loop(bot: Bot, interval_seconds: int = 60):
     while True:
