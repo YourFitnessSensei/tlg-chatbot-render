@@ -3,7 +3,7 @@ import logging
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from telegram import Update
 
-from calendar_watcher import watch_calendar_loop
+from src.calendar_watcher import watch_calendar_loop
 from user_map import user_map  # глобальный словарь
 
 logger = logging.getLogger(__name__)
