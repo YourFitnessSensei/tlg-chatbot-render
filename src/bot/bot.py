@@ -20,7 +20,9 @@ class TelegramBot:
 
     async def run(self):
         logger.info("🚀 Старт polling Telegram бота")
-        await self.application.run_polling()
+        await self.application.initialize()
+        await self.application.start()
+        self.application.create_task(self.application.updater.start_polling())
 
     async def shutdown(self):
         await self.application.updater.stop()
