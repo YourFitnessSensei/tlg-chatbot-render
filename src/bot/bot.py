@@ -1,30 +1,46 @@
+import asyncio
 import logging
-from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from user_map import user_map
+from telegram import Update
+
+from calendar_watcher import watch_calendar_loop
+from user_map import user_map  # глобальный словарь
 
 logger = logging.getLogger(__name__)
 
-class TelegramBot:
-    def __init__(self, token: str):
-        self.application = ApplicationBuilder().token(token).build()
-        self.user_map = user_map
+TOKEN = "ВАШ_ТОКЕН"  # замени на свой токен
 
+class TelegramBot:
+    def __init__(self):
+        self.application = ApplicationBuilder().token(TOKEN).build()
         self.application.add_handler(CommandHandler("start", self.start))
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        print("📥 Получена команда /start")  # Для проверки, что handler сработал
         chat_id = update.effective_chat.id
-        self.user_map[chat_id] = True  # подписываем пользователя
+        user_map[chat_id] = True  # сохраняем chat_id
         await context.bot.send_message(chat_id=chat_id, text="👋 Бот запущен. Вы подписаны на уведомления.")
+        logger.info(f"Добавлен chat_id: {chat_id} в user_map")
 
     async def run(self):
-        logger.info("🚀 Старт Telegram бота")
         await self.application.initialize()
         await self.application.start()
-        await self.application.updater.start_polling()
 
-    async def shutdown(self):
-        await self.application.updater.stop()
+        watcher_task = asyncio.create_task(watch_calendar_loop(self.application.bot))
+
+        logger.info("Бот и календарный воркер запущены")
+
+        await self.application.updater.idle()
+
+        watcher_task.cancel()
+        try:
+            await watcher_task
+        except asyncio.CancelledError:
+            pass
+
         await self.application.stop()
         await self.application.shutdown()
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    bot = TelegramBot()
+    asyncio.run(bot.run())
