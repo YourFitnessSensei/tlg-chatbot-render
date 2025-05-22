@@ -14,9 +14,6 @@ app = FastAPI()
 @app.on_event("startup")
 async def startup_event():
     logging.info("🚀 FastAPI запущен")
-
-    # Запускаем проверку календаря
+    asyncio.create_task(bot.run())  # ← теперь это безопасно
     asyncio.create_task(watch_calendar_loop(bot))
 
-    # Запускаем бота (это должен быть последний шаг, т.к. run_polling — бесконечный)
-    await bot.run()
