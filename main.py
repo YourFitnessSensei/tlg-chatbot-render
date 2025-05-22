@@ -2,6 +2,7 @@ import asyncio
 import logging
 from fastapi import FastAPI
 import os
+
 from src.bot.bot import TelegramBot
 from src.calendar_watcher import watch_calendar_loop
 
