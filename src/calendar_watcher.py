@@ -68,7 +68,7 @@ async def check_and_notify(bot: Bot):
         except Exception as e:
             logger.error(f"Ошибка при проверке календаря {calendar_id}: {e}")
 
-async def calendar_watcher_loop(bot: Bot, interval_seconds: int = 60):
+async def watch_calendar_loop(bot: Bot, interval_seconds: int = 60):
     while True:
         try:
             await check_and_notify(bot)
