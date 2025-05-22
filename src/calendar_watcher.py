@@ -21,9 +21,9 @@ CALENDAR_IDS = [
 ]
 
 def get_calendar_service():
-    creds_json = os.getenv("GOOGLE_CREDENTIALS")
+    creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
     if not creds_json:
-        raise RuntimeError("Переменная окружения GOOGLE_CREDENTIALS не установлена")
+        raise RuntimeError("Переменная окружения GOOGLE_CREDENTIALS_JSON не установлена")
     
     try:
         creds_info = json.loads(creds_json)
