@@ -1,32 +1,31 @@
-import os
 import logging
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-)
+from telegram.ext import Application, CommandHandler, ContextTypes
 
-from user_map import user_map, save_user_map
+from user_store import add_user
 
 logger = logging.getLogger(__name__)
 
 class TelegramBot:
     def __init__(self, token: str):
-        self.application = ApplicationBuilder().token(token).build()
-        self._setup_handlers()
-
-    def _setup_handlers(self):
+        self.token = token
+        self.application = Application.builder().token(token).build()
         self.application.add_handler(CommandHandler("start", self.start))
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat_id = update.effective_chat.id
-        username = update.effective_user.username or str(chat_id)
-        user_map[username] = chat_id
-        save_user_map()
-        await context.bot.send_message(chat_id=chat_id, text="✅ Ты успешно подписан на уведомления!")
+        user = update.effective_user
+        if user:
+            add_user(user.username, update.effective_chat.id)
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="✅ Вы подписаны на уведомления."
+            )
+            logger.info(f"Пользователь @{user.username} добавлен в user_store.")
+        else:
+            logger.warning("Не удалось определить пользователя")
 
     async def run(self):
         await self.application.initialize()
         await self.application.start()
-        # idle не нужен — FastAPI управляет циклом
+        await self.application.updater.start_polling()
+        await self.application.updater.wait_for_stop()
