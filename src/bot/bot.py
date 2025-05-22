@@ -12,7 +12,7 @@ TELEGRAM_BOT_TOKEN = "7655995093:AAFXF6tJ-DAAp36IJmJUuP0qCW6VvMlvJFc"  # зам�
 
 class TelegramBot:
     def __init__(self):
-        self.application = ApplicationBuilder().token(TOKEN).build()
+        self.application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
         self.application.add_handler(CommandHandler("start", self.start))
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
