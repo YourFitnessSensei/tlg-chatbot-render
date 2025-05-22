@@ -19,8 +19,10 @@ class TelegramBot:
         await context.bot.send_message(chat_id=chat_id, text="👋 Бот запущен. Вы подписаны на уведомления.")
 
     async def run(self):
-        logger.info("🚀 Старт polling Telegram бота")
-        await self.application.run_polling()
+        logger.info("🚀 Старт Telegram бота")
+        await self.application.initialize()
+        await self.application.start()
+        await self.application.updater.start_polling()
 
     async def shutdown(self):
         await self.application.updater.stop()
