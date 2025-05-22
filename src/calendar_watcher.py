@@ -47,7 +47,7 @@ async def check_and_notify(bot):
             ).execute()
 
             events = events_result.get('items', [])
-            
+
             for event in events:
                 start_raw = event['start'].get('dateTime', event['start'].get('date'))
                 start_dt = parser.parse(start_raw)
@@ -64,18 +64,15 @@ async def check_and_notify(bot):
                     f"⏰ Время: {time_str}"
                 )
 
-                logger.info(f"Обработка события: {summary} из календаря {calendar_id}")
+                logger.info(f"Отправка события из календаря {calendar_id}")
 
-                # Привязка по username
+                # Отправка только пользователю, чьи chat_id указан в summary
                 for username, chat_id in user_map.items():
                     if username in summary:
                         try:
                             await bot.application.bot.send_message(chat_id=chat_id, text=message)
-                            logger.info(f"Отправлено пользователю {username} ({chat_id})")
                         except Exception as e:
-                            logger.error(f"Ошибка при отправке сообщения для {username}: {e}")
-                        break  # одно событие — один пользователь
-
+                            logger.error(f"Ошибка при отправке сообщения: {e}")
         except Exception as e:
             logger.error(f"Ошибка при проверке календаря {calendar_id}: {e}")
 
