@@ -34,7 +34,7 @@ def get_calendar_service():
         logger.error(f"Ошибка при создании клиента календаря: {e}")
         raise
 
-async def check_and_notify(bot: Bot):
+async def check_and_notify(bot):  # Не указываем тип Bot, он не telegram.Bot
     service = get_calendar_service()
     now = datetime.utcnow().isoformat() + 'Z'  # UTC время
 
@@ -61,11 +61,12 @@ async def check_and_notify(bot: Bot):
 
                 for chat_id in user_map.values():
                     try:
-                        await bot.send_message(chat_id=chat_id, text=message)
+                        await bot.application.bot.send_message(chat_id=chat_id, text=message)
                     except Exception as e:
                         logger.error(f"Ошибка при отправке сообщения: {e}")
         except Exception as e:
             logger.error(f"Ошибка при проверке календаря {calendar_id}: {e}")
+
 
 async def watch_calendar_loop(bot: Bot, interval_seconds: int = 60):
     while True:
