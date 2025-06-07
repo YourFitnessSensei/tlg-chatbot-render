@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dateutil import parser
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
@@ -25,6 +25,7 @@ RUS_MONTHS = {
     9: "сентября", 10: "октября", 11: "ноября", 12: "декабря"
 }
 
+
 def get_calendar_service():
     creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
     if not creds_json:
@@ -41,30 +42,22 @@ def load_notified_event_ids():
     return {"1h": [], "24h": []}
 
 
-def save_notified_event_ids(notified_dict):
+def save_notified_event_ids(data):
     with open(NOTIFIED_EVENTS_FILE, "w") as f:
-        json.dump(notified_dict, f)
-
-
-def format_event_time(dt: datetime) -> str:
-    day = dt.day
-    month = RUS_MONTHS[dt.month]
-    year = dt.year
-    time_str = dt.strftime("%H:%M")
-    return f"{day} {month} {year} в {time_str} по Москве"
+        json.dump(data, f)
 
 
 async def check_and_notify(bot):
     service = get_calendar_service()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     user_map = load_user_map()
-    notified_event_ids = load_notified_event_ids()
+    notified_events = load_notified_event_ids()
 
     for calendar_id in CALENDAR_IDS:
         try:
             events_result = service.events().list(
                 calendarId=calendar_id,
-                timeMin=now.isoformat() + 'Z',
+                timeMin=now.isoformat(),
                 maxResults=20,
                 singleEvents=True,
                 orderBy='startTime'
@@ -74,49 +67,61 @@ async def check_and_notify(bot):
 
             for event in events:
                 event_id = event.get('id')
-                summary = event.get("summary", "")
-                start_raw = event['start'].get('dateTime', event['start'].get('date'))
-
-                if not event_id or not start_raw:
+                if not event_id:
                     continue
 
-                start_dt = parser.parse(start_raw)
-                time_diff = start_dt - now
-
+                summary = event.get("summary", "")
                 matched_chat_id = None
-                matched_username = None
 
                 for username, chat_id in user_map.items():
-                    if username and username in summary:
+                    if username in summary:
                         matched_chat_id = chat_id
-                        matched_username = username
                         break
 
                 if not matched_chat_id:
                     continue
 
-                notify_type = None
-                if timedelta(minutes=59) < time_diff <= timedelta(hours=1, minutes=1):
-                    notify_type = "1h"
-                elif timedelta(hours=23) < time_diff <= timedelta(hours=25):
-                    notify_type = "24h"
+                # Время события
+                start_raw = event['start'].get('dateTime', event['start'].get('date'))
+                start_dt = parser.parse(start_raw)
+                if start_dt.tzinfo is None:
+                    start_dt = start_dt.replace(tzinfo=timezone.utc)
 
-                if notify_type and event_id not in notified_event_ids[notify_type]:
-                    message = (
-                        f"🏋️ Привет, @{matched_username}!\n"
-                        f"Напоминание: у тебя тренировка {format_event_time(start_dt)}"
-                    )
+                time_diff = start_dt - now
+
+                # Форматируем дату/время
+                day = start_dt.day
+                month = RUS_MONTHS[start_dt.month]
+                year = start_dt.year
+                time_str = start_dt.strftime("%H:%M")
+
+                message = (
+                    f"🏋️ Привет, {summary}\n"
+                    f"🗓 У тебя тренировка {day} {month} {year}\n"
+                    f"⏰ В {time_str} по Москве"
+                )
+
+                # Отправка уведомлений
+                if timedelta(hours=0) < time_diff <= timedelta(hours=1) and event_id not in notified_events["1h"]:
                     try:
-                        await bot.application.bot.send_message(chat_id=matched_chat_id, text=message)
-                        logger.info(f"Уведомление {notify_type} отправлено @{matched_username} (chat_id: {matched_chat_id})")
-                        notified_event_ids[notify_type].append(event_id)
+                        await bot.application.bot.send_message(chat_id=matched_chat_id, text="⏰ Напоминание за 1 час!\n" + message)
+                        logger.info(f"[1h] Уведомление отправлено: {event_id}")
+                        notified_events["1h"].append(event_id)
                     except Exception as e:
-                        logger.error(f"Ошибка при отправке сообщения: {e}")
+                        logger.error(f"Ошибка при отправке [1h]: {e}")
+
+                elif timedelta(hours=1) < time_diff <= timedelta(hours=24) and event_id not in notified_events["24h"]:
+                    try:
+                        await bot.application.bot.send_message(chat_id=matched_chat_id, text="📅 Напоминание за 24 часа!\n" + message)
+                        logger.info(f"[24h] Уведомление отправлено: {event_id}")
+                        notified_events["24h"].append(event_id)
+                    except Exception as e:
+                        logger.error(f"Ошибка при отправке [24h]: {e}")
 
         except Exception as e:
             logger.error(f"Ошибка при проверке календаря {calendar_id}: {e}")
 
-    save_notified_event_ids(notified_event_ids)
+    save_notified_event_ids(notified_events)
 
 
 async def watch_calendar_loop(bot, interval_seconds=60):
