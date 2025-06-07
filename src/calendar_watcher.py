@@ -1,8 +1,9 @@
+calendar_watcher:
 import asyncio
 import logging
 import os
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from dateutil import parser
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
@@ -38,27 +39,27 @@ def get_calendar_service():
 def load_notified_event_ids():
     if os.path.exists(NOTIFIED_EVENTS_FILE):
         with open(NOTIFIED_EVENTS_FILE, "r") as f:
-            return json.load(f)
-    return {"1h": [], "24h": []}
+            return set(json.load(f))
+    return set()
 
 
-def save_notified_event_ids(data):
+def save_notified_event_ids(event_ids):
     with open(NOTIFIED_EVENTS_FILE, "w") as f:
-        json.dump(data, f)
+        json.dump(list(event_ids), f)
 
 
 async def check_and_notify(bot):
     service = get_calendar_service()
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow().isoformat() + 'Z'
     user_map = load_user_map()
-    notified_events = load_notified_event_ids()
+    notified_event_ids = load_notified_event_ids()
 
     for calendar_id in CALENDAR_IDS:
         try:
             events_result = service.events().list(
                 calendarId=calendar_id,
-                timeMin=now.isoformat(),
-                maxResults=20,
+                timeMin=now,
+                maxResults=10,
                 singleEvents=True,
                 orderBy='startTime'
             ).execute()
@@ -67,8 +68,8 @@ async def check_and_notify(bot):
 
             for event in events:
                 event_id = event.get('id')
-                if not event_id:
-                    continue
+                if not event_id or event_id in notified_event_ids:
+                    continue  # Пропускаем, если уже отправляли
 
                 summary = event.get("summary", "")
                 matched_chat_id = None
@@ -79,17 +80,11 @@ async def check_and_notify(bot):
                         break
 
                 if not matched_chat_id:
-                    continue
-
-                # Время события
-                start_raw = event['start'].get('dateTime', event['start'].get('date'))
-                start_dt = parser.parse(start_raw)
-                if start_dt.tzinfo is None:
-                    start_dt = start_dt.replace(tzinfo=timezone.utc)
-
-                time_diff = start_dt - now
+                    continue  # Пропускаем, если не найден пользователь
 
                 # Форматируем дату/время
+                start_raw = event['start'].get('dateTime', event['start'].get('date'))
+                start_dt = parser.parse(start_raw)
                 day = start_dt.day
                 month = RUS_MONTHS[start_dt.month]
                 year = start_dt.year
@@ -101,30 +96,21 @@ async def check_and_notify(bot):
                     f"⏰ В {time_str} по Москве"
                 )
 
-                # Отправка уведомлений
-                if timedelta(hours=0) < time_diff <= timedelta(hours=1) and event_id not in notified_events["1h"]:
-                    try:
-                        await bot.application.bot.send_message(chat_id=matched_chat_id, text="⏰ Напоминание за 1 час!\n" + message)
-                        logger.info(f"[1h] Уведомление отправлено: {event_id}")
-                        notified_events["1h"].append(event_id)
-                    except Exception as e:
-                        logger.error(f"Ошибка при отправке [1h]: {e}")
-
-                elif timedelta(hours=1) < time_diff <= timedelta(hours=24) and event_id not in notified_events["24h"]:
-                    try:
-                        await bot.application.bot.send_message(chat_id=matched_chat_id, text="📅 Напоминание за 24 часа!\n" + message)
-                        logger.info(f"[24h] Уведомление отправлено: {event_id}")
-                        notified_events["24h"].append(event_id)
-                    except Exception as e:
-                        logger.error(f"Ошибка при отправке [24h]: {e}")
+                try:
+                    await bot.application.bot.send_message(chat_id=matched_chat_id, text=message)
+                    logger.info(f"Отправлено уведомление для {matched_chat_id}")
+                    notified_event_ids.add(event_id)  # Запоминаем, чтобы не спамить
+                except Exception as e:
+                    logger.error(f"Ошибка при отправке сообщения: {e}")
 
         except Exception as e:
             logger.error(f"Ошибка при проверке календаря {calendar_id}: {e}")
 
-    save_notified_event_ids(notified_events)
+    save_notified_event_ids(notified_event_ids)
 
 
 async def watch_calendar_loop(bot, interval_seconds=60):
     while True:
         await check_and_notify(bot)
         await asyncio.sleep(interval_seconds)
+
