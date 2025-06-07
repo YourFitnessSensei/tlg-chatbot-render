@@ -3,7 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 
 from user_store import add_user
-from calendar_watcher import find_next_event_for_user
+from scr.calendar_watcher import find_next_event_for_user
 
 logger = logging.getLogger(__name__)
 
