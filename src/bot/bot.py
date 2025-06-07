@@ -7,7 +7,7 @@ from telegram.ext import (
     ContextTypes,
 )
 from user_store import add_user
-from src.calendar import get_next_event_for_user  # создадим эту функцию отдельно
+from src.calendar_watcher import get_next_event_for_user  # создадим эту функцию отдельно
 
 logger = logging.getLogger(__name__)
 
