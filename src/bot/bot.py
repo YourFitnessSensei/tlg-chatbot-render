@@ -1,9 +1,9 @@
 import logging
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from user_store import add_user
+from calendar_watcher import find_next_event_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +11,6 @@ class TelegramBot:
     def __init__(self, token: str):
         self.token = token
         self.application = Application.builder().token(token).build()
-
         self.application.add_handler(CommandHandler("start", self.start))
         self.application.add_handler(CallbackQueryHandler(self.handle_button_click))
 
@@ -19,9 +18,8 @@ class TelegramBot:
         user = update.effective_user
         if user:
             add_user(user.username, update.effective_chat.id)
-            keyboard = [[InlineKeyboardButton("📅 Следующая тренировка", callback_data="next_training")]]
+            keyboard = [[InlineKeyboardButton("\u23E9 Следующая тренировка", callback_data="next_training")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
-
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text="✅ Вы подписаны на уведомления.",
@@ -38,12 +36,15 @@ class TelegramBot:
         await query.answer()
 
         if query.data == "next_training":
-            # тут мы позже подставим функцию поиска следующей тренировки
-            await context.bot.send_message(chat_id=query.message.chat_id, text="🔍 Поиск следующей тренировки...")
+            username = query.from_user.username
+            response = await find_next_event_for_user(username)
+            if response:
+                await context.bot.send_message(chat_id=query.message.chat_id, text=response)
+            else:
+                await context.bot.send_message(chat_id=query.message.chat_id, text="\u2639\ufe0f Нет запланированных тренировок.")
 
     async def run(self):
         await self.application.initialize()
         await self.application.start()
-        # ❌ Удалили конфликтующие строки:
-        # await self.application.updater.start_polling()
-        # await self.application.updater.wait_for_stop()
+        #await self.application.updater.start_polling()
+        #await self.application.updater.wait_for_stop()
