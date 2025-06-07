@@ -90,9 +90,9 @@ async def check_and_notify(bot):
                 time_str = start_dt.strftime("%H:%M")
 
                 message = (
-                    f"🏋️ Привет: {summary}\n"
-                    f"🗓 У тебя тренировка: {day} {month} {year}\n"
-                    f"⏰ В: {time_str} по Москве"
+                    f"🏋️ Привет, {summary}\n"
+                    f"🗓 У тебя тренировка {day} {month} {year}\n"
+                    f"⏰ В {time_str} по Москве"
                 )
 
                 try:
