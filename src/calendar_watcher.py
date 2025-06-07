@@ -108,6 +108,45 @@ async def check_and_notify(bot):
     save_notified_event_ids(notified_event_ids)
 
 
+async def get_next_event_for_user(username: str) -> str | None:
+    service = get_calendar_service()
+    now = datetime.utcnow().isoformat() + 'Z'
+
+    for calendar_id in CALENDAR_IDS:
+        try:
+            events_result = service.events().list(
+                calendarId=calendar_id,
+                timeMin=now,
+                maxResults=20,
+                singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+
+            events = events_result.get('items', [])
+            for event in events:
+                summary = event.get("summary", "")
+                if username not in summary:
+                    continue
+
+                start_raw = event['start'].get('dateTime', event['start'].get('date'))
+                start_dt = parser.parse(start_raw)
+                day = start_dt.day
+                month = RUS_MONTHS[start_dt.month]
+                year = start_dt.year
+                time_str = start_dt.strftime("%H:%M")
+
+                return (
+                    f"🏋️ Привет, {summary}\n"
+                    f"🗓 Следующая тренировка {day} {month} {year}\n"
+                    f"⏰ В {time_str} по Москве"
+                )
+
+        except Exception as e:
+            logger.error(f"Ошибка при поиске тренировки в календаре {calendar_id}: {e}")
+
+    return None
+
+
 async def watch_calendar_loop(bot, interval_seconds=60):
     while True:
         await check_and_notify(bot)
