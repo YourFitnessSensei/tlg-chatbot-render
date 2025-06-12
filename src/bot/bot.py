@@ -41,7 +41,7 @@ class TelegramBot:
                 await query.edit_message_text("Пользователь не определён.")
                 return
 
-            event_text = await find_next_event_for_user(user.username)
+            event_text = find_next_event_for_user(user.username)
             await query.edit_message_text(event_text)
 
     async def run(self):
