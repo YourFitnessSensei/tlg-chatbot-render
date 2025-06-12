@@ -45,7 +45,13 @@ class TelegramBot:
             await query.edit_message_text(event_text)
 
     async def run(self):
-        await self.application.run_polling()
+        await self.application.initialize()
+        await self.application.start()
+        await self.application.updater.start_polling()
+        logger.info("🤖 Бот запущен")
+
+    #async def run(self):
+        #await self.application.run_polling()
         #await self.application.initialize()
         #await self.application.start()
         #await self.application.updater.start_polling()
