@@ -85,7 +85,9 @@ def save_notified_event_ids(event_ids):
 
 async def check_and_notify(bot):
     service = get_calendar_service()
-    now = datetime.utcnow().isoformat() + 'Z'
+    now = datetime.utcnow().replace(tzinfo=timezone.utc)
+    now_iso = now.isoformat()
+
     user_map = load_user_map()
     notified_event_ids = load_notified_event_ids()
 
@@ -93,7 +95,7 @@ async def check_and_notify(bot):
         try:
             events_result = service.events().list(
                 calendarId=calendar_id,
-                timeMin=now,
+                timeMin=now_iso,
                 maxResults=10,
                 singleEvents=True,
                 orderBy='startTime'
@@ -103,40 +105,68 @@ async def check_and_notify(bot):
 
             for event in events:
                 event_id = event.get('id')
-                if not event_id or event_id in notified_event_ids:
-                    continue  # Пропускаем, если уже отправляли
+                if not event_id:
+                    continue
 
                 summary = event.get("summary", "")
                 matched_chat_id = None
 
                 for username, chat_id in user_map.items():
-                    if username in summary:
+                    if username.lower() in summary.lower():
                         matched_chat_id = chat_id
                         break
 
                 if not matched_chat_id:
-                    continue  # Пропускаем, если не найден пользователь
+                    continue
 
-                # Форматируем дату/время
                 start_raw = event['start'].get('dateTime', event['start'].get('date'))
-                start_dt = parser.parse(start_raw)
-                day = start_dt.day
-                month = RUS_MONTHS[start_dt.month]
-                year = start_dt.year
-                time_str = start_dt.strftime("%H:%M")
+                start_dt = parser.parse(start_raw).astimezone(timezone.utc)
+                time_until_event = start_dt - now
 
-                message = (
-                    f"🏋️ Привет, {summary}\n"
-                    f"🗓 У тебя тренировка {day} {month} {year}\n"
-                    f"⏰ В {time_str} по Москве"
-                )
+                # Напоминание за 24 часа
+                if 23.5 * 3600 < time_until_event.total_seconds() < 24.5 * 3600:
+                    reminder_id_24h = f"{event_id}_24h"
+                    if reminder_id_24h not in notified_event_ids:
+                        message = (
+                            f"⏰ Напоминание! Завтра тренировка: {summary}\n"
+                            f"🗓 {start_dt.strftime('%d')} {RUS_MONTHS[start_dt.month]} {start_dt.year}\n"
+                            f"⏰ В {start_dt.strftime('%H:%M')} по Москве"
+                        )
+                        try:
+                            await bot.application.bot.send_message(chat_id=matched_chat_id, text=message)
+                            logger.info(f"Отправлено напоминание за 24ч для {matched_chat_id}")
+                            notified_event_ids.add(reminder_id_24h)
+                        except Exception as e:
+                            logger.error(f"Ошибка при отправке напоминания (24ч): {e}")
 
-                try:
-                    await bot.application.bot.send_message(chat_id=matched_chat_id, text=message)
-                    logger.info(f"Отправлено уведомление для {matched_chat_id}")
-                    notified_event_ids.add(event_id)  # Запоминаем, чтобы не спамить
-                except Exception as e:
-                    logger.error(f"Ошибка при отправке сообщения: {e}")
+                # Напоминание за 1 час
+                elif 0.5 * 3600 < time_until_event.total_seconds() < 1.5 * 3600:
+                    reminder_id_1h = f"{event_id}_1h"
+                    if reminder_id_1h not in notified_event_ids:
+                        message = (
+                            f"⏰ Скоро тренировка: {summary}\n"
+                            f"🕐 Через час — в {start_dt.strftime('%H:%M')} по Москве!"
+                        )
+                        try:
+                            await bot.application.bot.send_message(chat_id=matched_chat_id, text=message)
+                            logger.info(f"Отправлено напоминание за 1ч для {matched_chat_id}")
+                            notified_event_ids.add(reminder_id_1h)
+                        except Exception as e:
+                            logger.error(f"Ошибка при отправке напоминания (1ч): {e}")
+
+                # Основное уведомление (если не было)
+                if event_id not in notified_event_ids:
+                    message = (
+                        f"🏋️ Привет, {summary}\n"
+                        f"🗓 У тебя тренировка {start_dt.strftime('%d')} {RUS_MONTHS[start_dt.month]} {start_dt.year}\n"
+                        f"⏰ В {start_dt.strftime('%H:%M')} по Москве"
+                    )
+                    try:
+                        await bot.application.bot.send_message(chat_id=matched_chat_id, text=message)
+                        logger.info(f"Отправлено основное уведомление для {matched_chat_id}")
+                        notified_event_ids.add(event_id)
+                    except Exception as e:
+                        logger.error(f"Ошибка при отправке основного сообщения: {e}")
 
         except Exception as e:
             logger.error(f"Ошибка при проверке календаря {calendar_id}: {e}")
