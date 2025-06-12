@@ -11,6 +11,7 @@ logging.basicConfig(level=logging.INFO)
 bot = TelegramBot(token=os.getenv("TELEGRAM_BOT_TOKEN"))
 app = FastAPI()
 
+
 @app.on_event("startup")
 async def startup_event():
     logging.info("🚀 FastAPI запущен")
