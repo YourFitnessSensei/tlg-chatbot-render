@@ -1,4 +1,3 @@
-calendar_watcher:
 import asyncio
 import logging
 import os
